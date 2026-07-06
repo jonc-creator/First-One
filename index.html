@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Job Cost Estimator</title>
+<style>
+  :root {
+    --bg: #f5f3ef;
+    --card: #ffffff;
+    --ink: #2b2a27;
+    --muted: #6f6a61;
+    --line: #e4e0d8;
+    --accent: #b5541c;
+    --accent-ink: #ffffff;
+    --ok: #2e6b3f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #211f1c;
+      --card: #2c2925;
+      --ink: #ece8e1;
+      --muted: #a39c8f;
+      --line: #3d3934;
+      --accent: #d97a3d;
+      --accent-ink: #211f1c;
+      --ok: #7dbb8f;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    padding: 2rem 1rem 4rem;
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  header { margin-bottom: 1.5rem; }
+  h1 { font-size: 1.6rem; letter-spacing: -0.02em; }
+  header p { color: var(--muted); margin-top: 0.25rem; font-size: 0.95rem; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .card h2 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+  }
+
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    text-align: left;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    padding: 0.4rem 0.5rem;
+    border-bottom: 1px solid var(--line);
+  }
+  th.num, td.num { text-align: right; }
+  td { padding: 0.35rem 0.3rem; border-bottom: 1px solid var(--line); }
+  tr:last-child td { border-bottom: none; }
+
+  input, select {
+    width: 100%;
+    padding: 0.45rem 0.5rem;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--bg);
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.92rem;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  input[type="number"] { text-align: right; }
+  td.line-total { font-variant-numeric: tabular-nums; white-space: nowrap; padding-right: 0.5rem; }
+
+  .remove-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 0.2rem 0.45rem;
+    border-radius: 6px;
+    line-height: 1;
+  }
+  .remove-btn:hover { color: var(--accent); background: var(--bg); }
+
+  .add-row {
+    margin-top: 0.75rem;
+    background: none;
+    border: 1px dashed var(--line);
+    color: var(--muted);
+    width: 100%;
+    padding: 0.55rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.9rem;
+  }
+  .add-row:hover { border-color: var(--accent); color: var(--accent); }
+
+  .settings { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .settings label {
+    flex: 1 1 140px;
+    font-size: 0.8rem;
+    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .totals { font-variant-numeric: tabular-nums; }
+  .totals .row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.4rem 0;
+    font-size: 0.95rem;
+  }
+  .totals .row span:first-child { color: var(--muted); }
+  .totals .grand {
+    border-top: 2px solid var(--ink);
+    margin-top: 0.4rem;
+    padding-top: 0.7rem;
+    font-size: 1.25rem;
+    font-weight: 650;
+  }
+  .totals .grand span:first-child { color: var(--ink); }
+
+  .toolbar { display: flex; gap: 0.6rem; margin-top: 1rem; }
+  .toolbar button {
+    flex: 1;
+    padding: 0.65rem;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--ink);
+    font: inherit;
+    cursor: pointer;
+  }
+  .toolbar button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 600;
+  }
+  .toolbar button:hover { filter: brightness(1.05); }
+  .hint { font-size: 0.78rem; color: var(--muted); margin-top: 0.6rem; }
+  .saved-flash { color: var(--ok); }
+
+  @media print {
+    .toolbar, .add-row, .remove-btn, .hint { display: none; }
+    body { background: #fff; padding: 0; }
+    .card { border: none; padding: 0.5rem 0; }
+    input, select { border: none; background: none; padding: 0; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Job Cost Estimator</h1>
+    <p>Line up materials and labour, set your markup, get a quote total. Data saves in your browser.</p>
+  </header>
+
+  <section class="card">
+    <h2>Job</h2>
+    <input type="text" id="job-name" placeholder="e.g. Smith residence — deck rebuild" aria-label="Job name">
+  </section>
+
+  <section class="card">
+    <h2>Line items</h2>
+    <table aria-label="Estimate line items">
+      <thead>
+        <tr>
+          <th style="width:38%">Description</th>
+          <th style="width:16%">Type</th>
+          <th class="num" style="width:12%">Qty</th>
+          <th class="num" style="width:16%">Unit cost</th>
+          <th class="num" style="width:14%">Total</th>
+          <th style="width:4%"></th>
+        </tr>
+      </thead>
+      <tbody id="items"></tbody>
+    </table>
+    <button class="add-row" id="add-row">+ Add line item</button>
+  </section>
+
+  <section class="card">
+    <h2>Settings</h2>
+    <div class="settings">
+      <label>Markup on materials (%)
+        <input type="number" id="markup-materials" value="15" min="0" step="0.5">
+      </label>
+      <label>Markup on labour (%)
+        <input type="number" id="markup-labour" value="10" min="0" step="0.5">
+      </label>
+      <label>Tax / GST (%)
+        <input type="number" id="tax" value="0" min="0" step="0.1">
+      </label>
+      <label>Contingency (%)
+        <input type="number" id="contingency" value="5" min="0" step="0.5">
+      </label>
+    </div>
+  </section>
+
+  <section class="card totals">
+    <h2>Totals</h2>
+    <div class="row"><span>Materials (cost)</span><span id="t-materials">$0.00</span></div>
+    <div class="row"><span>Labour (cost)</span><span id="t-labour">$0.00</span></div>
+    <div class="row"><span>Other (cost)</span><span id="t-other">$0.00</span></div>
+    <div class="row"><span>Markup</span><span id="t-markup">$0.00</span></div>
+    <div class="row"><span>Contingency</span><span id="t-contingency">$0.00</span></div>
+    <div class="row"><span>Tax / GST</span><span id="t-tax">$0.00</span></div>
+    <div class="row grand"><span>Quote total</span><span id="t-grand">$0.00</span></div>
+  </section>
+
+  <div class="toolbar">
+    <button class="primary" id="print">Print / Save PDF</button>
+    <button id="export">Export CSV</button>
+    <button id="clear">Clear all</button>
+  </div>
+  <p class="hint" id="status">Changes save automatically to this browser.</p>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  const STORAGE_KEY = "job-cost-estimator-v1";
+  const itemsBody = document.getElementById("items");
+  const fields = {
+    jobName: document.getElementById("job-name"),
+    markupMaterials: document.getElementById("markup-materials"),
+    markupLabour: document.getElementById("markup-labour"),
+    tax: document.getElementById("tax"),
+    contingency: document.getElementById("contingency"),
+  };
+  const out = {
+    materials: document.getElementById("t-materials"),
+    labour: document.getElementById("t-labour"),
+    other: document.getElementById("t-other"),
+    markup: document.getElementById("t-markup"),
+    contingency: document.getElementById("t-contingency"),
+    tax: document.getElementById("t-tax"),
+    grand: document.getElementById("t-grand"),
+  };
+
+  const money = (n) =>
+    n.toLocaleString(undefined, { style: "currency", currency: "USD" });
+
+  function addRow(item) {
+    item = item || { desc: "", type: "materials", qty: 1, unit: 0 };
+    const tr = document.createElement("tr");
+
+    const tdDesc = document.createElement("td");
+    const desc = document.createElement("input");
+    desc.type = "text";
+    desc.placeholder = "Description";
+    desc.value = item.desc;
+    desc.className = "f-desc";
+    tdDesc.appendChild(desc);
+
+    const tdType = document.createElement("td");
+    const type = document.createElement("select");
+    type.className = "f-type";
+    for (const t of ["materials", "labour", "other"]) {
+      const opt = document.createElement("option");
+      opt.value = t;
+      opt.textContent = t[0].toUpperCase() + t.slice(1);
+      if (t === item.type) opt.selected = true;
+      type.appendChild(opt);
+    }
+    tdType.appendChild(type);
+
+    const tdQty = document.createElement("td");
+    const qty = document.createElement("input");
+    qty.type = "number";
+    qty.min = "0";
+    qty.step = "0.01";
+    qty.value = item.qty;
+    qty.className = "f-qty";
+    tdQty.appendChild(qty);
+
+    const tdUnit = document.createElement("td");
+    const unit = document.createElement("input");
+    unit.type = "number";
+    unit.min = "0";
+    unit.step = "0.01";
+    unit.value = item.unit;
+    unit.className = "f-unit";
+    tdUnit.appendChild(unit);
+
+    const tdTotal = document.createElement("td");
+    tdTotal.className = "num line-total";
+    tdTotal.textContent = money(0);
+
+    const tdRemove = document.createElement("td");
+    const rm = document.createElement("button");
+    rm.className = "remove-btn";
+    rm.textContent = "×";
+    rm.title = "Remove line";
+    rm.addEventListener("click", () => { tr.remove(); update(); });
+    tdRemove.appendChild(rm);
+
+    tr.append(tdDesc, tdType, tdQty, tdUnit, tdTotal, tdRemove);
+    itemsBody.appendChild(tr);
+  }
+
+  function readRows() {
+    return Array.from(itemsBody.rows).map((tr) => ({
+      desc: tr.querySelector(".f-desc").value,
+      type: tr.querySelector(".f-type").value,
+      qty: parseFloat(tr.querySelector(".f-qty").value) || 0,
+      unit: parseFloat(tr.querySelector(".f-unit").value) || 0,
+    }));
+  }
+
+  function update() {
+    const rows = readRows();
+    const cost = { materials: 0, labour: 0, other: 0 };
+    Array.from(itemsBody.rows).forEach((tr, i) => {
+      const line = rows[i].qty * rows[i].unit;
+      cost[rows[i].type] += line;
+      tr.querySelector(".line-total").textContent = money(line);
+    });
+
+    const pct = (el) => (parseFloat(el.value) || 0) / 100;
+    const markup =
+      cost.materials * pct(fields.markupMaterials) +
+      cost.labour * pct(fields.markupLabour);
+    const base = cost.materials + cost.labour + cost.other + markup;
+    const contingency = base * pct(fields.contingency);
+    const tax = (base + contingency) * pct(fields.tax);
+    const grand = base + contingency + tax;
+
+    out.materials.textContent = money(cost.materials);
+    out.labour.textContent = money(cost.labour);
+    out.other.textContent = money(cost.other);
+    out.markup.textContent = money(markup);
+    out.contingency.textContent = money(contingency);
+    out.tax.textContent = money(tax);
+    out.grand.textContent = money(grand);
+
+    save(rows);
+  }
+
+  function save(rows) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        jobName: fields.jobName.value,
+        markupMaterials: fields.markupMaterials.value,
+        markupLabour: fields.markupLabour.value,
+        tax: fields.tax.value,
+        contingency: fields.contingency.value,
+        items: rows,
+      }));
+    } catch (e) { /* storage unavailable (private mode etc.) — keep working without persistence */ }
+  }
+
+  function load() {
+    let data = null;
+    try { data = JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch (e) {}
+    if (data) {
+      fields.jobName.value = data.jobName || "";
+      fields.markupMaterials.value = data.markupMaterials ?? 15;
+      fields.markupLabour.value = data.markupLabour ?? 10;
+      fields.tax.value = data.tax ?? 0;
+      fields.contingency.value = data.contingency ?? 5;
+      (data.items && data.items.length ? data.items : [null]).forEach(addRow);
+    } else {
+      addRow({ desc: "Framing timber", type: "materials", qty: 40, unit: 12.5 });
+      addRow({ desc: "Carpenter", type: "labour", qty: 16, unit: 85 });
+      addRow({ desc: "Waste disposal", type: "other", qty: 1, unit: 150 });
+    }
+  }
+
+  function exportCsv() {
+    const rows = readRows();
+    const esc = (v) => '"' + String(v).replace(/"/g, '""') + '"';
+    const lines = [
+      ["Description", "Type", "Qty", "Unit cost", "Line total"].map(esc).join(","),
+      ...rows.map((r) =>
+        [r.desc, r.type, r.qty, r.unit, (r.qty * r.unit).toFixed(2)].map(esc).join(",")
+      ),
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = (fields.jobName.value || "estimate").replace(/[^\w-]+/g, "_") + ".csv";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  document.getElementById("add-row").addEventListener("click", () => { addRow(); update(); });
+  document.getElementById("print").addEventListener("click", () => window.print());
+  document.getElementById("export").addEventListener("click", exportCsv);
+  document.getElementById("clear").addEventListener("click", () => {
+    if (!confirm("Clear the whole estimate?")) return;
+    itemsBody.innerHTML = "";
+    fields.jobName.value = "";
+    addRow();
+    update();
+  });
+  document.querySelector("main").addEventListener("input", update);
+
+  load();
+  update();
+})();
+</script>
+</body>
+</html>
