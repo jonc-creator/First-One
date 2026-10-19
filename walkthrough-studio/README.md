@@ -9,8 +9,13 @@ Claude Design.
 - **Add a plan**: upload a PDF or image, set the scale from a known
   dimension, trace rooms, doors, openings and windows, and save. In
   claude.ai, "Draft with Claude" can rough in the tracing for you.
+- **Room** view: a furnished cutaway of one room (the default view), with
+  procedural wood, tile, carpet and rug materials, soft sun shadows and warm
+  lamp light. Furniture is placed by room type and kept clear of doors.
 - **Walk** in first person (W A S D or arrows, drag to look, on-screen pad on
-  phones) or switch to **Overview** for a dollhouse view.
+  phones) or switch to **House** for the whole floor with walls cut at 4'.
+- **Interior style**: Builder spec (painted walls) or Warm walnut (wood-paneled
+  walls). Views are labeled "Rendering · furniture shown for scale".
 - **Live floor plan** shows where you're standing. Click it to jump anywhere.
 - **Guided tour** walks room to room on its own.
 - **Walk notes** pin to the spot you're standing. In claude.ai, notes and
