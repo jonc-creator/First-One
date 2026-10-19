@@ -754,20 +754,62 @@ function putField(canvas, S, fn){ // fn(i) -> [r,g,b]
 }
 const hexRGB = h => { const n = parseInt(h.slice(1), 16); return [n >> 16, n >> 8 & 255, n & 255]; };
 
-// Painted drywall: a low-contrast mottle (color + sheen) and a fine orange-peel bump. One tile = 6 ft x full wall height.
+// Skip-trowel drywall, painted: scattered troweled plaster "skips" 1.5-4" across, slightly raised and smoother than the
+// sanded field around them, with a soft lower-edge shadow. One tile = 4 ft square.
 function paintSet(base){
-  const S = 1024, [col, bmp, rgh] = canvasPair(S), b = hexRGB(base);
-  const mott = noiseField(S, [[3, 1], [6, .7], [12, .45], [24, .3], [48, .18]], 101);
-  const peel = noiseField(S, [[160, 1], [320, .7]], 202);
-  putField(col, S, i => { const f = 1 + (mott[i] - .5) * .1 + (peel[i] - .5) * .02; return [b[0] * f, b[1] * f, b[2] * (f * .997)]; });
-  putField(bmp, S, i => { const v = 128 + (peel[i] - .5) * 150 + (mott[i] - .5) * 40; return [v, v, v]; });
-  putField(rgh, S, i => { const v = 220 + (mott[i] - .5) * 50; return [v, v, v]; });
-  const rep = [1 / 3, 1];
+  const S = 1024, [col, bmp, rgh] = canvasPair(S), [oc, ob, orr] = canvasPair(S), rnd = rng(303), b = hexRGB(base), PPI = S / 48;
+  const broad = noiseField(S, [[6, 1], [12, .5]], 404), sand = noiseField(S, [[256, 1], [512, .6]], 505);
+  putField(col, S, i => { const f = 1 + (broad[i] - .5) * .015 + (sand[i] - .5) * .012; return [b[0] * f, b[1] * f, b[2] * f]; });
+  putField(bmp, S, i => { const v = 112 + (sand[i] - .5) * 46; return [v, v, v]; });
+  putField(rgh, S, i => { const v = 232 + (sand[i] - .5) * 20; return [v, v, v]; });
+  const cc = oc.getContext('2d'), bc = ob.getContext('2d'), rc = orr.getContext('2d');
+  const path = (cx, bl, ox, oy) => { cx.beginPath(); bl.pts.forEach(([x, y], k) => k ? cx.lineTo(bl.x + x + ox, bl.y + y + oy) : cx.moveTo(bl.x + x + ox, bl.y + y + oy)); cx.closePath(); };
+  for (let i = 0; i < 200; i++){
+    const R = PPI * (.75 + rnd() * 1.25), stretch = 1.25 + rnd() * .9, ang = (rnd() - .5) * .9, ph = rnd() * 6, ph2 = rnd() * 6, pts = [];
+    for (let k = 0; k < 20; k++){
+      const t = k / 20 * Math.PI * 2, rr = R * (1 + .22 * Math.sin(3 * t + ph) + .12 * Math.sin(7 * t + ph2) + (rnd() - .5) * .16);
+      const x = Math.cos(t) * rr * stretch, y = Math.sin(t) * rr; pts.push([x * Math.cos(ang) - y * Math.sin(ang), x * Math.sin(ang) + y * Math.cos(ang)]);
+    }
+    const bl = {x:rnd() * S, y:rnd() * S, pts}, ext = R * stretch * 1.4, a = .018 + (rnd() - .5) * .012;
+    for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]){
+      if (bl.x + ox + ext < 0 || bl.x + ox - ext > S || bl.y + oy + ext < 0 || bl.y + oy - ext > S) continue;
+      cc.fillStyle = 'rgba(60,55,50,.018)'; path(cc, bl, ox + 1, oy + 2); cc.fill();
+      cc.fillStyle = 'rgba(255,255,255,' + a + ')'; path(cc, bl, ox, oy); cc.fill();
+      bc.fillStyle = '#8a8a8a'; path(bc, bl, ox, oy); bc.fill(); bc.strokeStyle = '#969696'; bc.lineWidth = 1.5; bc.stroke();
+      rc.fillStyle = '#b4b4b4'; path(rc, bl, ox, oy); rc.fill();
+    }
+  }
+  for (const [dst, src, blur] of [[col, oc, 1], [bmp, ob, 1.5], [rgh, orr, 1]]){ const x = dst.getContext('2d'); x.filter = 'blur(' + blur + 'px)'; x.drawImage(src, 0, 0); x.filter = 'none'; }
+  const rep = [.5, 2.25];   // wall u runs 1 per 2 ft, v 0..1 over 9 ft
   return {map:texFrom(col, true, rep), bumpMap:texFrom(bmp, false, rep), roughnessMap:texFrom(rgh, false, rep)};
+}
+// Shaker cabinet door, stained: one tile = one 18" door, full box height
+function shakerTex(base){
+  const W = 512, H = 1024, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'), rnd = rng(77);
+  x.fillStyle = base; x.fillRect(0, 0, W, H);
+  for (let g = 0; g < 70; g++){ x.strokeStyle = 'rgba(40,25,12,' + (.04 + rnd() * .07) + ')'; x.lineWidth = 1 + rnd() * 2; x.beginPath(); const ox = rnd() * W; x.moveTo(ox, 0); x.bezierCurveTo(ox + (rnd() - .5) * 20, H * .3, ox + (rnd() - .5) * 20, H * .7, ox + (rnd() - .5) * 10, H); x.stroke(); }
+  const st = 64;
+  x.fillStyle = 'rgba(0,0,0,.07)'; x.fillRect(st, st, W - 2 * st, H - 2 * st);           // recessed panel
+  x.strokeStyle = 'rgba(25,14,6,.55)'; x.lineWidth = 3; x.strokeRect(st, st, W - 2 * st, H - 2 * st);
+  x.strokeStyle = 'rgba(255,235,210,.2)'; x.lineWidth = 2; x.strokeRect(st + 4, st + 4, W - 2 * st - 8, H - 2 * st - 8);
+  x.fillStyle = 'rgba(15,8,3,.85)'; x.fillRect(0, 0, 4, H); x.fillRect(W - 4, 0, 4, H);    // reveal between doors
+  return texFrom(c, true);
+}
+// 3x12 white subway, glossy; one tile = 4 ft x 2 ft
+function subwaySet(){
+  const W = 1024, H = 512, col = document.createElement('canvas'), rg = document.createElement('canvas'); col.width = rg.width = W; col.height = rg.height = H;
+  const c = col.getContext('2d'), r = rg.getContext('2d'), rnd = rng(88), tw = W / 4, th = H / 8, g = 3;
+  c.fillStyle = '#CFCFCB'; c.fillRect(0, 0, W, H); r.fillStyle = '#e0e0e0'; r.fillRect(0, 0, W, H);
+  for (let j = 0; j < 8; j++) for (let i = -1; i <= 4; i++){
+    const x0 = i * tw + (j % 2 ? tw / 2 : 0), y0 = j * th, v = 236 + rnd() * 10;
+    const gr = c.createLinearGradient(0, y0, 0, y0 + th); gr.addColorStop(0, 'rgb(' + [v + 4, v + 4, v + 2].join(',') + ')'); gr.addColorStop(1, 'rgb(' + [v - 6, v - 6, v - 8].join(',') + ')');
+    c.fillStyle = gr; c.fillRect(x0 + g, y0 + g, tw - 2 * g, th - 2 * g); r.fillStyle = '#262626'; r.fillRect(x0 + g, y0 + g, tw - 2 * g, th - 2 * g);
+  }
+  return {map:texFrom(col, true), roughnessMap:texFrom(rg, false)};
 }
 // Wide-plank LVP: 9" planks in random lengths, cathedral and straight grain, micro-bevel edges. One tile = 6 ft square.
 function plankSet(base, seed){
-  const S = 2048, [col, bmp, rgh] = canvasPair(S), rnd = rng(seed), rows = 8, rh = S / rows;
+  const S = 2048, [col, bmp, rgh] = canvasPair(S), rnd = rng(seed), rows = 10, rh = S / rows;
   const c = col.getContext('2d'), bc = bmp.getContext('2d'), rc = rgh.getContext('2d');
   bc.fillStyle = '#808080'; bc.fillRect(0, 0, S, S); rc.fillStyle = '#7a7a7a'; rc.fillRect(0, 0, S, S);
   const b = hexRGB(base);
@@ -777,9 +819,10 @@ function plankSet(base, seed){
     const cuts = []; let acc = 0;
     while (acc < S){ let len = S * (.5 + rnd() * .33); if (S - acc - len < S * .3) len = S - acc; cuts.push([acc, len]); acc += len; }
     for (const [start, len] of cuts){
-      const tone = .92 + rnd() * .14, warm = (rnd() - .5) * 8;
-      const fill = 'rgb(' + (b[0] * tone + warm) + ',' + (b[1] * tone) + ',' + (b[2] * tone - warm) + ')';
-      const sheen = Math.round(100 + rnd() * 30), x = (o + start) % S;
+      const tone = .84 + rnd() * .3, grey = rnd() * rnd() * .55;
+      const mix = k => Math.round((b[k] * tone) * (1 - grey) + [112, 104, 96][k] * grey);
+      const fill = 'rgb(' + mix(0) + ',' + mix(1) + ',' + mix(2) + ')';
+      const sheen = Math.round(150 + rnd() * 35), x = (o + start) % S;
       const gseed = rnd() * 1e6;
       for (const px of [x, x - S]){
         if (px > S || px + len < 0) continue;
@@ -787,7 +830,7 @@ function plankSet(base, seed){
         c.save(); c.beginPath(); c.rect(px, y, len, rh); c.clip();
         c.fillStyle = fill; c.fillRect(px, y, len, rh);
         for (let g = 0; g < 46; g++){
-          c.strokeStyle = 'rgba(70,40,18,' + (.05 + gr() * .09) + ')'; c.lineWidth = 1 + gr() * 3; c.beginPath();
+          c.strokeStyle = (gr() < .25 ? 'rgba(170,150,130,' : 'rgba(35,22,12,') + (.06 + gr() * .12) + ')'; c.lineWidth = 1 + gr() * 3.5; c.beginPath();
           const oy = y + gr() * rh, ph = gr() * 6, amp = 1 + gr() * 4;
           for (let k = 0; k <= 16; k++){ const t = k / 16; const xx = px + t * len, yy = oy + Math.sin(t * 4 + ph) * amp; k ? c.lineTo(xx, yy) : c.moveTo(xx, yy); }
           c.stroke();
@@ -887,17 +930,20 @@ function envScene(){
 function makeMats(){
   const std = o => new THREE.MeshStandardMaterial(Object.assign({roughness:.8, metalness:0, envMapIntensity:.6}, o));
   const M = {
-    paint:std(Object.assign({color:0xFFFFFF, roughness:1, bumpScale:.012}, paintSet('#E9E4DB'))),
+    paint:std(Object.assign({color:0xFFFFFF, roughness:1, bumpScale:.012}, paintSet('#ECECE9'))),
     walnut:std(Object.assign({roughness:.5, bumpScale:.02}, walnutSet())),
-    trim:std({color:0xF4F2ED, roughness:.32, envMapIntensity:.8}), trimWalnut:std({color:0x2F2219, roughness:.42}),
+    trim:std({color:0xF7F7F5, roughness:.3, envMapIntensity:.8}), trimWalnut:std({color:0x2F2219, roughness:.42}),
     cap:std({color:0x2B2825, roughness:.95}), slab:std({color:0x37332E, roughness:.95}),
     glass:std({color:0xC6DCE6, transparent:true, opacity:.22, roughness:.04, envMapIntensity:1.4, depthWrite:false}),
-    frame:std({color:0x1D1B19, roughness:.45, metalness:.2}), ceil:std({color:0xF7F6F3, side:THREE.DoubleSide, roughness:.95}),
+    frame:std({color:0xF4F4F2, roughness:.45}), ceil:std({color:0xF4F4F2, side:THREE.DoubleSide, roughness:.95}),
     porch:std(Object.assign({roughness:1, bumpScale:.01}, concreteSet('#C8C3B9', 5))), post:std({color:0xEFEBE4, roughness:.8}),
+    cabinet:std({map:shakerTex('#8A6A4D'), roughness:.55}), cabinetBox:std({color:0x553D2B, roughness:.6}),
+    quartz:std({color:0xF3F3F1, roughness:.12, envMapIntensity:1.1}), kick:std({color:0x2A2018, roughness:.9}),
+    subway:std(Object.assign({color:0xFFFFFF, roughness:1, envMapIntensity:1.1}, subwaySet())), pull:std({color:0x161616, roughness:.35, metalness:.6}),
     contact:new THREE.MeshBasicMaterial({map:contactTex(), transparent:true, depthWrite:false, color:0xFFFFFF, toneMapped:false})
   };
   M.floors = {
-    oak:std(Object.assign({color:0xFFFFFF, roughness:1, bumpScale:.008, envMapIntensity:.8}, plankSet('#B88A5C', 21))),
+    oak:std(Object.assign({color:0xFFFFFF, roughness:1, bumpScale:.008, envMapIntensity:.6}, plankSet('#6F5843', 21))),
     lvt:std(Object.assign({color:0xFFFFFF, roughness:1, bumpScale:.008, envMapIntensity:.8}, plankSet('#B9AE9D', 22))),
     tile:std(Object.assign({color:0xFFFFFF, roughness:1, bumpScale:.01, envMapIntensity:1}, tileSet('#DCD7CE', 23, true))),
     vinyl:std(Object.assign({color:0xFFFFFF, roughness:1, bumpScale:.006, envMapIntensity:.8}, tileSet('#D8D0C1', 24, false))),
@@ -946,6 +992,60 @@ function mk(geom, mat, x, y, z, parent){
   return m;
 }
 
+/* kitchen built-ins: stained shaker base and upper cabinets, white quartz, subway backsplash, black pulls */
+const roomWalls = r => [{o:'h', at:r.y, a:r.x, b:r.x + r.w, nx:0, nz:1}, {o:'h', at:r.y + r.h, a:r.x, b:r.x + r.w, nx:0, nz:-1},
+                        {o:'v', at:r.x, a:r.y, b:r.y + r.h, nx:1, nz:0}, {o:'v', at:r.x + r.w, a:r.y, b:r.y + r.h, nx:-1, nz:0}];
+const opsOn = w => geo.ops.filter(p => p.o === w.o && Math.abs(p.at - w.at) < 1e-6 && p.b > w.a && p.a < w.b);
+function kitchenBuiltins(r, g, inRoom){
+  const M = T.M, H = plan.wallH, used = [];
+  const cand = roomWalls(r).filter(w => !opsOn(w).some(p => p.kind === 'door' && p.head >= 90 && p.b - p.a >= (w.b - w.a) * .6)).map(w => {
+    const runs = cutIv([[w.a + .22, w.b - .22]], opsOn(w).filter(p => p.kind === 'door').map(p => [p.a - .4, p.b + .4]));
+    const best = runs.reduce((m, x) => (!m || x[1] - x[0] > m[1] - m[0]) ? x : m, null);
+    return {w, best};
+  }).filter(o => o.best && o.best[1] - o.best[0] >= 4).sort((p, q) => (q.best[1] - q.best[0]) - (p.best[1] - p.best[0])).slice(0, 2);
+  for (const {w, best} of cand){
+    let [a, b] = best;
+    for (const u of used) if (u.o !== w.o){ const inw = u.o === 'v' ? u.nx : u.nz; if (inw > 0 && a < u.at + 2.3) a = Math.max(a, u.at + 2.15); if (inw < 0 && b > u.at - 2.3) b = Math.min(b, u.at - 2.15); }
+    if (b - a < 3) continue;
+    used.push(w);
+    const mid = (w.a + w.b) / 2, both = w.o === 'h' ? inRoom(mid, w.at - .6) && inRoom(mid, w.at + .6) : inRoom(w.at - .6, mid) && inRoom(w.at + .6, mid);
+    const face = both ? .2 : .35, len = b - a, c = (a + b) / 2, sign = w.nz !== 0 ? w.nz : -w.nx;
+    const grp = new THREE.Group(); grp.rotation.y = Math.atan2(w.nx, w.nz);
+    if (w.o === 'h') grp.position.set(c, 0, w.at + w.nz * face); else grp.position.set(w.at + w.nx * face, 0, c);
+    const lx = v => (v - c) * sign;     // wall coordinate -> local x
+    const cab = (x0, x1, y0, y1, d) => {
+      const L = x1 - x0, geom = new THREE.BoxGeometry(L, y1 - y0, d), uv = geom.attributes.uv;
+      for (let i = 16; i < 24; i++) uv.setX(i, uv.getX(i) * L / 1.5);
+      mk(geom, [M.cabinetBox, M.cabinetBox, M.cabinetBox, M.cabinetBox, M.cabinet, M.cabinetBox], (x0 + x1) / 2, (y0 + y1) / 2, d / 2, grp);
+      const n = Math.max(1, Math.round(L / 1.5)), tall = y1 - y0 > 2;
+      for (let k = 0; k < n; k++){
+        const px = x0 + (k + .5) * L / n + (k % 2 ? -1 : 1) * (L / n / 2 - .22);
+        mk(new THREE.BoxGeometry(.04, tall ? .55 : .4, .05), M.pull, px, tall ? (y0 > 3 ? y0 + .5 : y1 - .55) : (y0 + y1) / 2, d + .03, grp);
+      }
+    };
+    const x0 = -len / 2, x1 = len / 2;
+    mk(new THREE.BoxGeometry(len, .33, 1.8), M.kick, 0, .165, .9, grp);
+    cab(x0, x1, .33, 2.95, 2);
+    mk(new THREE.BoxGeometry(len + .04, .1, 2.12), M.quartz, 0, 3.0, 1.06, grp);
+    const wins = opsOn(w).filter(p => p.kind === 'window').map(p => [Math.min(lx(p.a), lx(p.b)), Math.max(lx(p.a), lx(p.b)), p.sill != null ? p.sill : 3]);
+    // backsplash: 18" tall, stops at a window sill
+    const bsY0 = 3.05, segs = cutIv([[x0, x1]], wins.map(q => [q[0] - .3, q[1] + .3]));
+    const splash = (s0, s1, hgt) => {
+      if (s1 - s0 < .2 || hgt < .1) return;
+      const gm = new THREE.PlaneGeometry(s1 - s0, hgt), uv = gm.attributes.uv;
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * (s1 - s0) / 4, uv.getY(i) * hgt / 2);
+      const m = new THREE.Mesh(gm, M.subway); m.position.set((s0 + s1) / 2, bsY0 + hgt / 2, .012); m.receiveShadow = true; grp.add(m);
+    };
+    for (const [s0, s1] of segs) splash(s0, s1, 1.5);
+    for (const q of wins) splash(Math.max(x0, q[0] - .3), Math.min(x1, q[1] + .3), Math.min(1.5, q[2] - bsY0 - .1));
+    // uppers: boxes to just under the ceiling with a small crown, kept clear of windows
+    const top = Math.min(H - .35, 7.9), ub = 4.55;
+    for (const [s0, s1] of segs) if (s1 - s0 >= 1.4){ cab(s0, s1, ub, top, 1.1); mk(new THREE.BoxGeometry(s1 - s0 + .1, .16, 1.22), M.cabinetBox, (s0 + s1) / 2, top + .08, .61, grp); }
+    g.add(grp);
+    furnRects.push(w.o === 'h' ? {x0:a, x1:b, y0:Math.min(w.at, w.at + w.nz * 2.4), y1:Math.max(w.at, w.at + w.nz * 2.4)}
+                               : {x0:Math.min(w.at, w.at + w.nx * 2.4), x1:Math.max(w.at, w.at + w.nx * 2.4), y0:a, y1:b});
+  }
+}
 function build3D(){
   if (!T) return;
   if (T.group){ T.scene.remove(T.group); T.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
@@ -988,11 +1088,14 @@ function build3D(){
     }
   };
   // casing around a door or window opening, both faces
+  // Craftsman casing: flat 3.5" legs, a 5.5" head that runs past the legs, and a thin cap on top
   const casing = (p, bot, top, t) => {
-    const cw = .3, dep = t + .08;
-    box(p.o, p.at, p.a - cw, p.a, bot, top + cw, dep, trimMat, {cast:false});
-    box(p.o, p.at, p.b, p.b + cw, bot, top + cw, dep, trimMat, {cast:false});
-    box(p.o, p.at, p.a, p.b, top, top + cw, dep, trimMat, {cast:false});
+    const cw = .29, dep = t + .08, hh = Math.min(.46, H - top - .1);
+    if (hh < .2) return;
+    box(p.o, p.at, p.a - cw, p.a, bot, top, dep, trimMat, {cast:false});
+    box(p.o, p.at, p.b, p.b + cw, bot, top, dep, trimMat, {cast:false});
+    box(p.o, p.at, p.a - cw - .06, p.b + cw + .06, top, top + hh, dep, trimMat, {cast:false});
+    box(p.o, p.at, p.a - cw - .12, p.b + cw + .12, top + hh, top + hh + .07, dep + .1, trimMat, {cast:false});
   };
   const atOpening = (s, v) => geo.ops.some(p => p.o === s.o && p.at === s.at && (Math.abs(p.a - v) < 1e-6 || Math.abs(p.b - v) < 1e-6));
   for (const s of geo.solid){
@@ -1008,7 +1111,7 @@ function build3D(){
       if (head < H) box(p.o, p.at, p.a, p.b, head, H, t, wm, {wallUV:true});
       if (head < H - .35 && w < 8) casing(p, 0, head, t);
     } else {
-      const sill = p.sill != null ? p.sill : 3, head = Math.min(plan.winHead || 7, H - 0.4);
+      const sill = p.sill != null ? p.sill : 3, head = Math.min(plan.winHead || 7, H - 0.7);
       if (sill > 0.05){ box(p.o, p.at, p.a, p.b, 0, sill, t, wm, {wallUV:true}); base(p.o, p.at, p.a, p.b, t); }
       box(p.o, p.at, p.a, p.b, head, H, t, wm, {wallUV:true});
       box(p.o, p.at, p.a, p.b, sill, head, 0.06, M.glass, {cast:false});
@@ -1029,6 +1132,7 @@ function build3D(){
     const fm = new THREE.Mesh(fg, M.floors[r.f] || M.floors.oak); fm.position.set(r.x + r.w / 2, 0.01, r.y + r.h / 2); fm.receiveShadow = true; g.add(fm);
     const cg = new THREE.PlaneGeometry(r.w, r.h); cg.rotateX(Math.PI / 2);
     const cm = new THREE.Mesh(cg, M.ceil); cm.position.set(r.x + r.w / 2, H, r.y + r.h / 2); ceil.add(cm);
+    if (/kitchen/i.test(r.name)) kitchenBuiltins(r, g, inRoom);
   }
   for (const s of plan.slabs || []) mk(new THREE.BoxGeometry(s.w, 0.35, s.h), M.porch, s.x + s.w / 2, -0.6, s.y + s.h / 2, g);
   for (const [x, y, sz] of plan.posts || []) mk(new THREE.BoxGeometry(sz, 8.4, sz), M.post, x, 3.8, y, g);

@@ -9,10 +9,11 @@ Claude Design.
 - **Add a plan**: upload a PDF or image, set the scale from a known
   dimension, trace rooms, doors, openings and windows, and save. In
   claude.ai, "Draft with Claude" can rough in the tracing for you.
-- **Room** view: a cutaway of one empty room (the default view) that shows the
-  finishes: mottled painted walls, baseboards, door and window casings, window
-  stools, wide-plank LVP, 12x24 tile, carpet and polished concrete, with soft sun
-  shadows and contact shadows at the wall base.
+- **Room** view: a cutaway of one room (the default view) that shows the
+  finishes, matched to Weatherall's current package: white skip-trowel walls,
+  white Craftsman trim and windows, weathered medium-brown LVP, tile, carpet,
+  and in kitchens stained shaker cabinets, white quartz, subway backsplash and
+  black pulls. Soft sun shadows and contact shadows at the wall base.
 - **Walk** in first person (W A S D or arrows, drag to look, on-screen pad on
   phones) or switch to **House** for the whole floor with walls cut at 4'.
 - **Interior style**: Builder spec (painted walls) or Warm walnut (wood-paneled
